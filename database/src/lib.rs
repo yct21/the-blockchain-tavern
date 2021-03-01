@@ -1,6 +1,15 @@
 //! Crate to manage database of blockchain
 
-/// load data
+mod state;
+mod tx;
+mod genesis;
+
+// new
+// persistance
+// add transaction
+// check balances
+
+pub use state::State;
 
 #[cfg(test)]
 mod tests {
