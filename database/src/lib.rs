@@ -4,17 +4,6 @@ mod state;
 mod tx;
 mod genesis;
 
-// new
-// persistance
-// add transaction
-// check balances
-
 pub use state::State;
+pub use tx::Tx;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

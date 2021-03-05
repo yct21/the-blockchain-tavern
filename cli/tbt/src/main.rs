@@ -3,49 +3,49 @@
 // add tx
 
 mod balances;
+mod cli;
+mod tx;
 
-use clap::{App, Arg, SubCommand};
+use anyhow::{anyhow, Result};
+use clap::Clap;
+use cli::BaseSubCmd;
+use std::fs::{File, OpenOptions};
+use tavern_database::State;
+
+fn run() -> Result<()> {
+    let opts = cli::Opts::parse();
+
+    let genesis_file_path = format!("{}/genesis.json", opts.database);
+    let mut genesis_file = File::open(&genesis_file_path).map_err(|err| {
+        anyhow!(
+            "Could not open genesis file in {}:\n  {}",
+            genesis_file_path,
+            err
+        )
+    })?;
+
+    let tx_file_path = format!("{}/tx.db", opts.database);
+    let mut tx_file = OpenOptions::new().read(true).write(true).open(&tx_file_path)
+        .map_err(|err| anyhow!("Could not open tx file in {}:\n  {}", tx_file_path, err))?;
+
+    let mut state = State::new(&mut genesis_file, &mut tx_file)?;
+
+    match opts.subcmd {
+        BaseSubCmd::BalancesCmd(balances_cmd) => {
+            balances_cmd.process(state)?;
+        }
+        BaseSubCmd::TxCmd(tx_cmd) => {
+            tx_cmd.process(&mut state, &mut tx_file)?;
+        }
+    }
+
+    Ok(())
+}
 
 fn main() {
-    let matches = App::new("The Blockchain Tarvern")
-        .author("Chutian Yang <yct21@12tcy.com>")
-        .about("The Blockchain Tarvern CLI")
-        .subcommand(
-            SubCommand::with_name("balances")
-                .about("Interact with balances")
-                .subcommand(SubCommand::with_name("list").about("List all balances")),
-        )
-        .subcommand(
-            SubCommand::with_name("tx")
-                .about("Interact with transaction")
-                .subcommand(
-                    SubCommand::with_name("add")
-                        .about("Add new tx to database")
-                        .arg(
-                            Arg::with_name("from")
-                                .required(true)
-                                .takes_value(true)
-                                .help("From what account to send tokens"),
-                        )
-                        .arg(
-                            Arg::with_name("to")
-                                .required(true)
-                                .takes_value(true)
-                                .help("To what account to send tokens"),
-                        )
-                        .arg(
-                            Arg::with_name("value")
-                                .required(true)
-                                .takes_value(true)
-                                .help("How many tokens to send"),
-                        )
-                        .arg(
-                            Arg::with_name("data")
-                                .takes_value(true)
-                                .possible_values(&["reward"])
-                                .help("Data of transaction"),
-                        ),
-                ),
-        )
-        .get_matches();
+    let result = run();
+
+    if let Err(err) = result {
+        println!("{}", err);
+    }
 }

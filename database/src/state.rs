@@ -32,7 +32,7 @@ pub enum InitStateError {
         source: serde_json::Error,
     },
 
-    #[error("Error happened during applying transactions from past")]
+    #[error("Error happened during applying transactions from past: \n tx: {0} \n reason: {1}")]
     ApplyTxError(Tx, ApplyTxError),
 }
 
@@ -40,9 +40,6 @@ pub enum InitStateError {
 pub enum ApplyTxError {
     #[error("Sender not found")]
     SenderAccountNotFound,
-
-    #[error("Receiver not found")]
-    ReceiverAccountNotFound,
 
     #[error("Insufficient balance")]
     InsufficientBalance,
@@ -56,7 +53,7 @@ pub enum PersistError {
         source: serde_json::Error,
     },
 
-    #[error("Failed to persist transactions")]
+    #[error("Failed to persist transactions:\n  {source}")]
     WriteError {
         #[source]
         source: std::io::Error,
@@ -103,9 +100,9 @@ impl State {
         &self.balances
     }
 
-    pub fn add(&mut self, tx: Tx) -> Result<(), ApplyTxError> {
-        self.apply(&tx)?;
-        self.tx_mem_pool.push(tx);
+    pub fn add(&mut self, tx: &Tx) -> Result<(), ApplyTxError> {
+        self.apply(tx)?;
+        self.tx_mem_pool.push(tx.clone());
 
         Ok(())
     }
@@ -130,7 +127,7 @@ impl State {
         // In order to keep borrow checker happy,
         // control flow is changed weiredly here.
         if !self.balances.keys().any(|key| *key == tx.to) {
-            return Err(ApplyTxError::ReceiverAccountNotFound);
+            self.balances.insert(tx.to.clone(), 0);
         }
 
         let sender_balance = self
@@ -197,7 +194,7 @@ mod tests {
         };
 
         state
-            .add(Tx {
+            .add(&Tx {
                 from: "andrej".to_string(),
                 to: "andrej".to_string(),
                 value: 100,
